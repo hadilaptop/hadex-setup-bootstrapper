@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hadex Chromium</title>
+  <style>
+    :root { color-scheme: light; font-family: "Segoe UI", Tahoma, sans-serif; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+    body { display: flex; flex-direction: column; background: #f4f6f8; color: #20242a; }
+    .topbar { display: flex; align-items: center; gap: 9px; padding: 12px 14px; background: #fff; border-bottom: 1px solid #dfe3e8; }
+    .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; white-space: nowrap; color: #1f2937; margin-right: 4px; }
+    .logo { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg,#2563eb,#06b6d4); font-size: 15px; }
+    button { height: 36px; min-width: 36px; border: 1px solid #d8dde5; border-radius: 9px; background: #fff; color: #293241; cursor: pointer; font-size: 16px; }
+    button:hover { background: #eef4ff; border-color: #b9cdfa; }
+    button:disabled { opacity: .4; cursor: default; }
+    form { display: flex; flex: 1; min-width: 100px; }
+    input { height: 38px; width: 100%; border: 1px solid #d8dde5; border-radius: 11px; padding: 0 14px; outline: none; font: inherit; background: #f8fafc; }
+    input:focus { border-color: #6594f5; box-shadow: 0 0 0 3px #2563eb18; background: white; }
+    #go { padding: 0 15px; margin-left: 8px; background: #2563eb; color: white; border-color: #2563eb; font-size: 14px; }
+    #go:hover { background: #1d4ed8; }
+    .status { height: 24px; display: flex; align-items: center; padding: 0 15px; color: #687386; background: #fff; font-size: 11px; border-bottom: 1px solid #e7eaf0; }
+    webview { flex: 1; width: 100%; height: 100%; background: white; }
+    @media (max-width: 700px) { .brand span:last-child { display:none; } .topbar { gap: 5px; padding: 8px; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand" title="Hadex Chromium"><div class="logo">H</div><span>Hadex Chromium</span></div>
+    <button id="back" title="صفحه قبل" aria-label="Back">←</button>
+    <button id="forward" title="صفحه بعد" aria-label="Forward">→</button>
+    <button id="reload" title="بارگذاری مجدد" aria-label="Reload">⟳</button>
+    <button id="home" title="صفحه اصلی" aria-label="Home">⌂</button>
+    <form id="address-form">
+      <input id="address" type="text" autocomplete="url" spellcheck="false" placeholder="آدرس سایت یا عبارت جست‌وجو را وارد کنید" aria-label="Website address">
+      <button id="go" type="submit">برو</button>
+    </form>
+  </header>
+  <div class="status" id="status">آماده</div>
+  <webview id="browser" src="https://www.google.com/" partition="persist:hadex-browser" allowpopups="true"></webview>
+  <script>
+    const view = document.getElementById('browser');
+    const address = document.getElementById('address');
+    const status = document.getElementById('status');
+    const back = document.getElementById('back');
+    const forward = document.getElementById('forward');
+    const homeUrl = 'https://www.google.com/';
+
+    function normalizedUrl(value) {
+      const text = value.trim();
+      if (!text) return homeUrl;
+      if (/^(https?:\/\/|file:\/\/|about:)/i.test(text)) return text;
+      if (/^(localhost|127\.0\.0\.1)(:\d+)?([/?#].*)?$/i.test(text)) return 'http://' + text;
+      if (/^[\w.-]+\.[a-z]{2,}(:\d+)?([/?#].*)?$/i.test(text)) return 'https://' + text;
+      return 'https://www.google.com/search?q=' + encodeURIComponent(text);
+    }
+
+    function navigate(value) {
+      const url = normalizedUrl(value);
+      address.value = url;
+      status.textContent = 'در حال بارگذاری…';
+      view.loadURL(url).catch(() => {
+        status.textContent = 'بارگذاری این آدرس ناموفق بود.';
+      });
+    }
+
+    document.getElementById('address-form').addEventListener('submit', event => {
+      event.preventDefault();
+      navigate(address.value);
+    });
+    address.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        address.value = view.getURL();
+        address.blur();
+      }
+    });
+    back.addEventListener('click', () => { if (view.canGoBack()) view.goBack(); });
+    forward.addEventListener('click', () => { if (view.canGoForward()) view.goForward(); });
+    document.getElementById('reload').addEventListener('click', () => view.reload());
+    document.getElementById('home').addEventListener('click', () => navigate(homeUrl));
+
+    function updateNavigation() {
+      back.disabled = !view.canGoBack();
+      forward.disabled = !view.canGoForward();
+    }
+    view.addEventListener('did-navigate', event => {
+      address.value = event.url;
+      status.textContent = event.url;
+      updateNavigation();
+    });
+    view.addEventListener('did-navigate-in-page', event => {
+      address.value = event.url;
+      updateNavigation();
+    });
+    view.addEventListener('did-start-loading', () => { status.textContent = 'در حال بارگذاری…'; });
+    view.addEventListener('did-stop-loading', () => {
+      status.textContent = 'آماده';
+      updateNavigation();
+    });
+    view.addEventListener('page-title-updated', event => {
+      document.title = event.title ? event.title + ' — Hadex Chromium' : 'Hadex Chromium';
+    });
+    view.addEventListener('did-fail-load', event => {
+      if (event.errorCode !== -3) status.textContent = 'خطا در بارگذاری: ' + event.errorDescription;
+    });
+    address.value = homeUrl;
+    updateNavigation();
+  </script>
+</body>
+</html>
