@@ -332,9 +332,13 @@ function openWizardWindow(url) {
   const exe = candidates[0];
   try {
     if (exe) {
-      // --app => a clean standalone window without tabs; uses the user's own
-      // default browser profile, which never conflicts with Hadex's profile.
-      spawn(exe, ["--app=" + url, "--window-size=600,800", "--window-position=60,50"], { detached: true, stdio: "ignore" }).unref();
+      // Use a dedicated temporary profile so cleanup never touches the user's everyday browser.
+      const args = [];
+      if (process.env.HADEX_UI_PROFILE_DIR) {
+        args.push("--user-data-dir=" + path.resolve(process.env.HADEX_UI_PROFILE_DIR));
+      }
+      args.push("--no-first-run", "--no-default-browser-check", "--app=" + url, "--window-size=600,800", "--window-position=60,50");
+      spawn(exe, args, { detached: true, stdio: "ignore" }).unref();
     } else {
       spawn("cmd.exe", ["/c", "start", "", url], { detached: true, stdio: "ignore" }).unref();
     }
