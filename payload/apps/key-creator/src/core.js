@@ -127,7 +127,7 @@ async function navigate(context) {
       await log("Reusing OpenAI page in Hadex Chromium: " + existingOpenAiPage.url());
       return existingOpenAiPage;
     }
-    appPage = pages.find(page => /file:\/\/\/E:\/hadex\/Hadex%20Chromium\/index\.html/i.test(page.url()));
+    appPage = pages.find(page => /^file:\/\//i.test(page.url()) && /index\.html(?:[?#].*)?$/i.test(page.url()));
     if (appPage) break;
     await wait(250);
   }
