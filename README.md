@@ -29,9 +29,7 @@ The tunnel ID is used only during this one-time setup and is intentionally remov
 
 The GitHub Actions workflow `.github/workflows/release.yml` builds a Windows ZIP containing the portable Node.js runtime, Hadex Chromium, the three existing Hadex automation flows, and a SHA-256 checksum. It publishes both assets to a GitHub Release.
 
-To publish a release:
-- Push a version tag such as `v1.0.0`, or
-- Open **Actions → Build and publish Hadex setup bundle → Run workflow**, then provide a release tag.
+Every push to `main` builds the bundle and updates the `v1.0.0` release. For versioned releases, push a tag such as `v1.1.0`, or open **Actions → Build and publish Hadex setup bundle → Run workflow** and provide a release tag.
 
 The latest release must contain:
 - `hadex-setup-win-x64.zip`
