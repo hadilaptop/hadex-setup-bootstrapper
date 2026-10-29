@@ -1,35 +1,47 @@
-# Hadex Setup Bootstrapper
+# Hadex one-time setup bootstrapper
 
-This repository is for the **one-time setup flow only**. It is not the future Hadex desktop application.
+This repository contains the temporary Windows setup flow only. It is **not** the future Hadex desktop application.
 
-## Intended user command
+## Run on Windows
 
-Run in PowerShell:
+Open PowerShell and run:
 
 ```powershell
 irm https://raw.githubusercontent.com/hadilaptop/hadex-setup-bootstrapper/main/bootstrap.ps1 | iex
 ```
 
-The script downloads the latest release asset into a unique temporary directory, launches the setup bundle, waits for its exit code, and removes that temporary directory. It does not clone the repository or leave a source checkout on the computer.
+The repository must be public for this unauthenticated one-command download to work.
 
-## Required release artifact
+## What the setup does
 
-The latest GitHub Release must contain:
+1. Downloads the latest release ZIP into a unique temporary directory and verifies its SHA-256 checksum.
+2. Starts Hadex Chromium with a temporary Electron user-data directory.
+3. Runs the existing Key Creator wizard to create and save an API key, unless a non-empty key file already exists.
+4. Runs the Tunnels wizard and validates the captured tunnel ID.
+5. Runs the Plugins wizard to add the `hadex-gpt` MCP server to ChatGPT.
+6. Stops the temporary browser and removes the extracted bundle, browser/session profile, logs, caches, and temporary tunnel metadata.
 
+The durable API key is saved to `E:\hadex\Hadex gpt2\CONTROL_PLANE_API_KEY.txt` when the E: drive exists; otherwise it uses `Documents\Hadex\CONTROL_PLANE_API_KEY.txt`. The API key is never printed or uploaded to GitHub.
+
+The tunnel ID is used only during this one-time setup and is intentionally removed with the temporary state. The future Hadex app will need to resolve the tunnel ID from the account or its configuration; it is not part of this bootstrapper.
+
+## Build and publish
+
+The GitHub Actions workflow `.github/workflows/release.yml` builds a Windows ZIP containing the portable Node.js runtime, Hadex Chromium, the three existing Hadex automation flows, and a SHA-256 checksum. It publishes both assets to a GitHub Release.
+
+To publish a release:
+- Push a version tag such as `v1.0.0`, or
+- Open **Actions → Build and publish Hadex setup bundle → Run workflow**, then provide a release tag.
+
+The latest release must contain:
 - `hadex-setup-win-x64.zip`
-- The ZIP must contain `HadexSetup.exe` at its root.
-- The executable must run the one-time browser/login/key/tunnel/plugin workflow and return exit code 0 only after successful completion.
-- The API key must be saved to the agreed durable path for the future Hadex application **before** the setup exits.
-- Browser profile, authentication session data, logs, downloaded dependencies, and other temporary artifacts must be placed under the run's temporary directory or another explicitly temporary directory and cleaned after success.
-- The setup must never delete the retained API key when cleaning temporary data.
+- `hadex-setup-win-x64.zip.sha256`
 
-## Current status
+## Security and cleanup
 
-The bootstrap script is committed as the delivery entry point. The packaged setup executable is a separate build artifact and must be produced from the existing Hadex Chromium and Key Creator automation before the command can complete a real setup. Until the release asset exists, the script stops with a clear message instead of pretending the workflow ran.
-
-## Security notes
-
-- Users sign in themselves in the browser; this tool must not ask for or log their passwords.
-- API keys are secrets. Do not print the full key in logs, upload it to GitHub, or include it in diagnostic bundles.
-- This bootstrapper currently expects a GitHub Release asset. It verifies the downloaded file size against GitHub release metadata; production releases should additionally publish a SHA-256 checksum and/or signed executable.
-- The temporary setup bundle should only create the requested resources and should not bypass account security checks or CAPTCHAs.
+- Users perform sign-in themselves; the setup never asks for their password.
+- API key contents are not logged, printed, or uploaded.
+- The bootstrap verifies the bundle's SHA-256 checksum before running it.
+- The setup uses a dedicated temporary browser profile and does not reuse the everyday browser profile.
+- If a step fails, temporary browser/session data is still removed. Any API key already saved is preserved.
+- The setup does not bypass CAPTCHA or account security checks.
