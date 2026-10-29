@@ -1,0 +1,11 @@
+{
+  "name": "hadex-gpt-key-creator",
+  "version": "1.5.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/wizard.js",
+    "console": "node src/main.js"
+  },
+  "dependencies": { "clipboardy": "^4.0.0", "playwright": "^1.55.0" }
+}
