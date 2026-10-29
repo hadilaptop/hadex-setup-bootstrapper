@@ -145,6 +145,11 @@ try {
         throw 'The MCP setup success marker is invalid.'
     }
 
+    # The one-time setup intentionally retains only the API key file in the
+    # durable Hadex folder. Remove known legacy setup artifacts after success.
+    Remove-Item -LiteralPath (Join-Path $KeyFolder 'CONTROL_PLANE_TUNNEL_ID.txt') -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath (Join-Path $KeyFolder 'CONTROL_PLANE_API_KEY.backup.txt') -Force -ErrorAction SilentlyContinue
+
     $Completed = $true
     Write-Host ''
     Write-Host 'Hadex setup completed successfully.' -ForegroundColor Green
