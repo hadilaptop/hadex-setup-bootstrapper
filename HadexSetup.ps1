@@ -10,7 +10,21 @@ $ChromiumDir = Join-Path $PayloadRoot 'Hadex Chromium'
 $KeyDir = Join-Path $PayloadRoot 'apps\key-creator'
 $TunnelDir = Join-Path $PayloadRoot 'apps\tunnels'
 $PluginDir = Join-Path $PayloadRoot 'apps\plugins'
-$KeyFolder = if (Test-Path 'E:\') { 'E:\hadex\Hadex gpt2' } else { Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Hadex' }
+$KeyFolder = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Hadex'
+if (Test-Path 'E:\\') {
+    $candidateKeyFolder = 'E:\\hadex\\Hadex gpt2'
+    $probePath = Join-Path $candidateKeyFolder ('.hadex-write-test-' + [guid]::NewGuid().ToString('N'))
+    try {
+        New-Item -ItemType Directory -Path $candidateKeyFolder -Force | Out-Null
+        [System.IO.File]::WriteAllText($probePath, 'test')
+        Remove-Item -LiteralPath $probePath -Force -ErrorAction SilentlyContinue
+        $KeyFolder = $candidateKeyFolder
+    }
+    catch {
+        Remove-Item -LiteralPath $probePath -Force -ErrorAction SilentlyContinue
+        Write-Host 'E:\\hadex\\Hadex gpt2 is not writable; using Documents\\Hadex instead.' -ForegroundColor Yellow
+    }
+}
 $KeyFile = Join-Path $KeyFolder 'CONTROL_PLANE_API_KEY.txt'
 $TunnelIdFile = Join-Path $StateRoot 'CONTROL_PLANE_TUNNEL_ID.txt'
 $PluginMarker = Join-Path $StateRoot 'plugin-success.json'
