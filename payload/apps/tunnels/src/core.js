@@ -104,55 +104,45 @@ async function launch() {
   return context;
 }
 async function navigate(context) {
-  await log("Opening target URL: " + TARGET_PAGE);
-  const page = await context.newPage();
-  for (const other of context.pages()) {
-    if (other !== page && !other.isClosed() && other.url() === "about:blank") {
-      await other.close().catch(() => {});
-    }
+  await log("Opening target URL in Hadex Chromium: " + TARGET_PAGE);
+  const managedPage = /^https:\/\/(platform\.openai\.com|chatgpt\.com|auth\.openai\.com)\//i;
+  const pages = context.pages();
+  let page = pages.find(candidate => managedPage.test(candidate.url()));
+  if (!page) page = pages.find(candidate => /^file:\/\//i.test(candidate.url()) && /index\.html/i.test(candidate.url()));
+  if (!page) {
+    throw new Error("Could not find the Hadex Chromium window through CDP. Keep Hadex Chromium open and retry.");
   }
-  await page.bringToFront().catch(() => {});
 
   let lastError = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      // "commit" resolves as soon as navigation is accepted; the final URL is then
-      // polled, because the platform -> auth.openai.com -> platform redirect chain can
-      // leave the tab reporting about:blank while domcontentloaded is still pending.
       await page.goto(TARGET_PAGE, { waitUntil: "commit", timeout: 90000 });
       lastError = null;
     } catch (error) {
       lastError = error;
-      await log(`Navigation attempt ${attempt} threw: ${error.message}`);
+      await log("Navigation attempt " + attempt + " threw: " + String(error?.message || error));
     }
+
     const deadline = Date.now() + 45000;
     while (Date.now() < deadline) {
-      if (OPENAI_HOST.test(page.url())) break;
       if (page.isClosed()) break;
-      await wait(500);
+      if (managedPage.test(page.url())) {
+        await wait(1000);
+        await page.bringToFront().catch(() => {});
+        await log("Target page is ready in Hadex Chromium: " + page.url());
+        return page;
+      }
+      await wait(300);
     }
-    const url = page.url();
-    if (OPENAI_HOST.test(url)) {
-      await wait(1500);
-      await page.bringToFront().catch(() => {});
-      await log("Target navigation completed. Current URL: " + page.url());
-      return page;
-    }
-    await log(`Attempt ${attempt} ended at URL: ${url}`);
     if (page.isClosed()) break;
-    await wait(2000);
+    await wait(1000);
   }
-  const finalUrl = page.isClosed() ? "(tab closed)" : page.url();
-  if (/^about:blank/i.test(finalUrl)) {
-    throw new Error(
-      "Chrome opened but stayed on about:blank. This means Playwright could not attach to the browser it started. " +
-      "Most common causes: (1) another Hadex browser window was still open - close every window whose title or taskbar icon belongs to Hadex and run again; " +
-      "(2) the Hadex profile is locked - restart Windows once and run again. " +
-      "If it still fails, delete the folder %LOCALAPPDATA%\\Hadex\\GPTKeyCreator\\chrome-profile and run again."
-    );
-  }
-  throw new Error("Chrome opened, but navigation did not reach the OpenAI Tunnels settings page. Current URL: " + finalUrl +
-    (lastError ? " | last error: " + lastError.message : ""));
+
+  throw new Error(
+    "Hadex Chromium did not reach the target page. Current URL: " +
+    (page.isClosed() ? "(window closed)" : page.url()) +
+    (lastError ? " | last error: " + String(lastError?.message || lastError) : "")
+  );
 }
 async function visibleLogin(page) {
   if (loginRequired(page)) return true;
