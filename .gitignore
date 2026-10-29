@@ -1,0 +1,12 @@
+# Local build artifacts
+dist/
+release/
+*.zip
+*.exe
+*.msi
+
+# Local secrets and diagnostics
+.env
+*.log
+*API_KEY*.txt
+CONTROL_PLANE_API_KEY.txt
