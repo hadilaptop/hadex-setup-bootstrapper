@@ -1,41 +1,13 @@
 {
   "name": "hadex-chromium",
   "version": "1.0.0",
-  "description": "Hadex Chromium - a standalone Windows browser",
+  "description": "Hadex Chromium - temporary browser for one-time setup",
   "main": "main.js",
   "private": true,
   "scripts": {
-    "start": "electron .",
-    "dist:win": "electron-builder --win nsis"
+    "start": "electron ."
   },
-  "devDependencies": {
-    "electron": "^39.0.0",
-    "electron-builder": "^26.0.12"
-  },
-  "build": {
-    "appId": "com.hadex.chromium",
-    "productName": "Hadex Chromium",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "main.js",
-      "index.html",
-      "package.json"
-    ],
-    "win": {
-      "target": [
-        "nsis"
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
-    }
-  },
-  "allowScripts": {
-    "electron": true
+  "dependencies": {
+    "electron": "^39.0.0"
   }
 }
