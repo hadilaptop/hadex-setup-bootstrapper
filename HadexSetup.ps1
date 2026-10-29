@@ -31,6 +31,22 @@ $PluginMarker = Join-Path $StateRoot 'plugin-success.json'
 $BrowserProcess = $null
 $Completed = $false
 
+function Stop-HadexWizardWindow {
+    $profilePath = $env:HADEX_UI_PROFILE_DIR
+    if (-not $profilePath) { return }
+    try {
+        $uiProcesses = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+            Where-Object {
+                ($_.Name -eq 'chrome.exe' -or $_.Name -eq 'msedge.exe') -and
+                $_.CommandLine -like "*$profilePath*"
+            }
+        foreach ($p in $uiProcesses) {
+            Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
+        }
+    } catch {}
+    Start-Sleep -Milliseconds 300
+}
+
 function Invoke-HadexWizard {
     param(
         [Parameter(Mandatory = $true)][string]$Label,
@@ -45,6 +61,7 @@ function Invoke-HadexWizard {
     }
     finally {
         Pop-Location
+        Stop-HadexWizardWindow
     }
     if ($code -ne 0) {
         throw "$Label ended with exit code $code."
@@ -81,6 +98,7 @@ try {
     $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $StateRoot 'Playwright'
     $env:npm_config_cache = Join-Path $StateRoot 'npm-cache'
     $env:HADEX_KEY_DIR = $KeyFolder
+    $env:HADEX_UI_PROFILE_DIR = Join-Path $StateRoot 'WizardUIProfile'
     $env:HADEX_TUNNEL_ID_FILE = $TunnelIdFile
     $env:PATH = "$RuntimeRoot;$RuntimeRoot\node_modules\npm\bin;$env:PATH"
 
