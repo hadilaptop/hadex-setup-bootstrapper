@@ -13,6 +13,10 @@ on:
         required: true
         default: 'v1.0.0'
 
+concurrency:
+  group: hadex-setup-release
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
