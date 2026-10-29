@@ -2,6 +2,8 @@ name: Build and publish Hadex setup bundle
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
@@ -73,8 +75,10 @@ jobs:
         run: |
           if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
             $tag = '${{ inputs.release_tag }}'
-          } else {
+          } elseif ('${{ github.ref_type }}' -eq 'tag') {
             $tag = '${{ github.ref_name }}'
+          } else {
+            $tag = 'v1.0.0'
           }
           if (-not $tag -or $tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') {
             throw "Invalid release tag: $tag (expected vMAJOR.MINOR.PATCH)"
