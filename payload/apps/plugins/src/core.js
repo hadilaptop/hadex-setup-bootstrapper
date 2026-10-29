@@ -146,7 +146,7 @@ async function navigate(context) {
     const deadline = Date.now() + 45000;
     while (Date.now() < deadline) {
       if (page.isClosed()) break;
-      if (managedPage.test(page.url())) {
+      if (page.url().startsWith(TARGET_PAGE) || /^https:\/\/auth\.openai\.com\//i.test(page.url())) {
         await wait(1000);
         await page.bringToFront().catch(() => {});
         await log("Target page is ready in Hadex Chromium: " + page.url());
