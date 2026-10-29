@@ -247,8 +247,9 @@ function resetFrom(id) {
 }
 
 async function exitAll() {
-  engineLog("Exit requested; closing the Hadex browser window.");
-  try { if (state.context) await state.context.close(); } catch {}
+  engineLog("Wizard exit requested; keeping Hadex Chromium open for the next setup stage.");
+  // The outer one-time runner owns Hadex Chromium and closes it after all stages.
+  // Do not close the shared CDP browser context between stages.
   setTimeout(() => process.exit(0), 300);
 }
 
