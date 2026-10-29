@@ -46,10 +46,12 @@ try {
     }
 
     $checksumText = (Get-Content -LiteralPath $ChecksumPath -Raw).Trim()
-    if ($checksumText -notmatch '^([0-9a-fA-F]{64})\s+') {
+    if ($checksumText -match '^([0-9a-fA-F]{64})\s+') {
+        $expectedHash = $Matches[1].ToLowerInvariant()
+    }
+    else {
         throw 'The release SHA-256 checksum file has an invalid format.'
     }
-    $expectedHash = $Matches[1].ToLowerInvariant()
     $actualHash = (Get-FileHash -LiteralPath $ZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($actualHash -ne $expectedHash) {
         throw 'SHA-256 verification failed. The downloaded setup bundle will not be executed.'
