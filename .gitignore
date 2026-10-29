@@ -4,9 +4,16 @@ release/
 *.zip
 *.exe
 *.msi
+.runtime-state/
+
+# Dependencies generated during local builds
+node_modules/
+**/node_modules/
+payload/**/package-lock.json
 
 # Local secrets and diagnostics
 .env
 *.log
 *API_KEY*.txt
 CONTROL_PLANE_API_KEY.txt
+CONTROL_PLANE_TUNNEL_ID.txt
