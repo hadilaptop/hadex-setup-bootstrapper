@@ -234,7 +234,7 @@ async function runSave() {
   setStep(id, { status: "running", detail: "منتظر باز شدن پنجره‌ی Save your key و کپی کلید...", error: "" });
   const secret = await core.waitForSecret(state.page);
   setStep(id, { status: "running", detail: "کلید پیدا شد؛ ذخیره در فایل و کلیپ‌بورد...", error: "" });
-  const saved = await core.saveSecret(secret, { backup: true });
+  const saved = await core.saveSecret(secret, { backup: false });
   state.keyPath = saved.file;
   setStep(id, {
     status: "done",
