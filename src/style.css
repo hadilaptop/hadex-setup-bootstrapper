@@ -1,0 +1,8 @@
+*{box-sizing:border-box} :root{color-scheme:dark;font-family:"Segoe UI",Tahoma,sans-serif}
+body{margin:0;min-height:100vh;background:#0b0f17;color:#edf2fa}.panel{min-height:100vh;padding:26px 30px 20px;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:12px;border-bottom:1px solid #252e3d;padding-bottom:18px}.logo{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-weight:800;font-size:22px;background:linear-gradient(135deg,#4f8cff,#18c58b)}
+h1{margin:0;font-size:18px}header p{margin:3px 0 0;color:#8e9bb0;font-size:12px}.version{margin-right:auto;color:#8e9bb0;font:10px Consolas,monospace;border:1px solid #293447;border-radius:20px;padding:5px 9px}
+.intro{text-align:center;margin:auto 0;padding:20px 0}.orb{width:76px;height:76px;border-radius:24px;display:grid;place-items:center;margin:0 auto 20px;font-size:34px;font-weight:800;background:radial-gradient(circle at 30% 20%,#5da4ff,#1b765f);box-shadow:0 12px 45px #1d9a7540}
+h2{font-size:21px;margin:0 0 8px}.intro p,.note{color:#92a0b5;font-size:12px}.progress{height:5px;border-radius:8px;background:#202a39;overflow:hidden}.progress span{display:block;height:100%;width:0;background:#23c78b;transition:width .4s}.progress span.active{width:80%;animation:move 1s infinite alternate}@keyframes move{to{width:100%}}
+.status{color:#a9b7ca;font-size:12px;min-height:20px}footer{display:flex;gap:10px}button{height:43px;border-radius:10px;padding:0 20px;font-size:13px;font-weight:700;cursor:pointer}button:disabled{opacity:.55;cursor:wait}
+.primary{flex:1;color:#061c15;border:0;background:linear-gradient(110deg,#34d399,#22b981)}.secondary{color:#dce7f5;border:1px solid #35445a;background:#192333}.note{text-align:center;margin:13px 0 0;font-size:10px}
