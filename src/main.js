@@ -1,105 +1,124 @@
-const { app, BrowserWindow, ipcMain, shell, session } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('node:path');
+const fs = require('node:fs');
+const { spawn } = require('node:child_process');
 
 app.setName('Hadex Setup');
 app.setPath('userData', path.join(app.getPath('appData'), 'HadexSetup'));
 
 const WINDOW = { width: 600, height: 650 };
-const BROWSER_PARTITION = 'persist:hadex-private-browser';
+const GOOGLE_SIGNIN_URL =
+  'https://accounts.google.com/v3/signin/identifier?continue=https%3A%2F%2Fwww.google.com%2F&hl=en&flowName=WebLiteSignIn&flowEntry=ServiceLogin';
 
 let installerWindow;
-let chromiumWindow;
-let browserSession;
 
-// Keep both windows alive, but show only the active one. Hiding the
-// inactive window (rather than merely removing its taskbar button) prevents
-// Windows from displaying two previews when hovering the Hadex taskbar icon.
-function setActiveTaskbarWindow(activeWindow) {
-  if (!installerWindow || !chromiumWindow) return;
-  if (installerWindow.isDestroyed() || chromiumWindow.isDestroyed()) return;
+function findChromeExecutable() {
+  const candidates = [
+    path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'Application', 'chrome.exe')
+  ];
 
-  installerWindow.setSkipTaskbar(false);
-  chromiumWindow.setSkipTaskbar(false);
-
-  const inactiveWindow = activeWindow === installerWindow
-    ? chromiumWindow
-    : installerWindow;
-
-  if (!activeWindow.isVisible()) activeWindow.show();
-  if (inactiveWindow.isVisible()) inactiveWindow.hide();
+  return candidates.find(candidate => candidate && fs.existsSync(candidate));
 }
 
-function routeNewWindow(contents, parentWindow) {
-  contents.setWindowOpenHandler(({ url }) => {
-    if (
-      url.startsWith('https://accounts.google.com/') ||
-      url.startsWith('https://myaccount.google.com/')
-    ) {
-      // Open Google authentication in a compact Electron window using
-      // the exact same persistent Hadex browser session/cookies.
-      const authWindow = new BrowserWindow({
-        ...WINDOW,
-        title: 'ورود به حساب Google — Hadex',
-        autoHideMenuBar: true,
-        center: true,
-        resizable: false,
-        parent: parentWindow && !parentWindow.isDestroyed() ? parentWindow : undefined,
-        webPreferences: {
-          session: browserSession,
-          nodeIntegration: false,
-          contextIsolation: true,
-          sandbox: true
-        }
+function openGoogleChrome() {
+  const chromePath = findChromeExecutable();
+  if (!chromePath) {
+    return {
+      ok: false,
+      message: 'Google Chrome در مسیرهای استاندارد ویندوز پیدا نشد.'
+    };
+  }
+
+  const profilePath = path.join(app.getPath('userData'), 'ChromeProfile');
+  fs.mkdirSync(profilePath, { recursive: true });
+
+  return new Promise(resolve => {
+    const chrome = spawn(chromePath, [
+      '--new-window',
+      `--user-data-dir=${profilePath}`,
+      '--no-first-run',
+      '--no-default-browser-check',
+      `--window-size=${WINDOW.width},${WINDOW.height}`,
+      GOOGLE_SIGNIN_URL
+    ], {
+      detached: true,
+      stdio: 'ignore'
+    });
+
+    chrome.once('error', error => {
+      resolve({
+        ok: false,
+        message: `اجرای Google Chrome ناموفق بود: ${error.message}`
       });
-      routeNewWindow(authWindow.webContents, authWindow);
-      authWindow.loadURL(url).catch(error => {
-        console.error('[Hadex] Google sign-in popup failed:', error);
+    });
+
+    chrome.once('spawn', () => {
+      chrome.unref();
+      moveInstallerBehindChrome();
+
+      resolve({
+        ok: true,
+        message: 'Google Chrome اجرا شد؛ پنجره نصب باز می‌ماند.'
       });
-    } else if (url.startsWith('https://') || url.startsWith('http://')) {
-      shell.openExternal(url);
-    }
-    return { action: 'deny' };
+    });
   });
 }
 
-function createWindows() {
-  const sharedBounds = { ...WINDOW, center: true };
+function moveInstallerBehindChrome() {
+  if (!installerWindow || installerWindow.isDestroyed()) return;
 
-  chromiumWindow = new BrowserWindow({
-    ...sharedBounds,
-    minWidth: WINDOW.width,
-    maxWidth: WINDOW.width,
-    minHeight: WINDOW.height,
-    maxHeight: WINDOW.height,
-    show: false,
-    skipTaskbar: false,
-    title: 'Hadex Chromium',
-    backgroundColor: '#f4f6f8',
-    autoHideMenuBar: true,
-    resizable: false,
-    webPreferences: {
-      webviewTag: true,
-      preload: path.join(__dirname, 'browser-preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true
-    }
-  });
+  const handleBuffer = installerWindow.getNativeWindowHandle();
+  const installerHandle = handleBuffer.length >= 8
+    ? handleBuffer.readBigUInt64LE(0).toString()
+    : String(handleBuffer.readUInt32LE(0));
 
-  routeNewWindow(chromiumWindow.webContents, chromiumWindow);
-  chromiumWindow.webContents.on('did-attach-webview', (_event, guestContents) => {
-    routeNewWindow(guestContents, chromiumWindow);
-  });
-  chromiumWindow.loadFile(path.join(__dirname, 'browser.html'));
+  const script = `
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class WindowOrder {
+  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+}
+"@
+$installer = [IntPtr]::new([Int64]${installerHandle})
+$chromeWindow = [IntPtr]::Zero
+for ($i = 0; $i -lt 60; $i++) {
+  $chromeWindow = (Get-Process chrome -ErrorAction SilentlyContinue |
+    Where-Object { $_.MainWindowHandle -ne 0 } |
+    Sort-Object StartTime -Descending |
+    Select-Object -First 1).MainWindowHandle
+  if ($chromeWindow -ne [IntPtr]::Zero) { break }
+  Start-Sleep -Milliseconds 100
+}
+if ($chromeWindow -ne [IntPtr]::Zero) {
+  [WindowOrder]::SetWindowPos($installer, [IntPtr]::new(1), 0, 0, 0, 0, 0x0013) | Out-Null
+  [WindowOrder]::SetForegroundWindow([IntPtr]$chromeWindow) | Out-Null
+}
+`;
 
+  const orderProcess = spawn('powershell.exe', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-WindowStyle',
+    'Hidden',
+    '-Command',
+    script
+  ], { detached: true, stdio: 'ignore' });
+  orderProcess.unref();
+}
+
+function createInstallerWindow() {
   installerWindow = new BrowserWindow({
-    ...sharedBounds,
+    ...WINDOW,
     minWidth: WINDOW.width,
     maxWidth: WINDOW.width,
     minHeight: WINDOW.height,
     maxHeight: WINDOW.height,
+    center: true,
     show: true,
-    skipTaskbar: false,
     title: 'Hadex Setup',
     backgroundColor: '#10141d',
     autoHideMenuBar: true,
@@ -111,23 +130,11 @@ function createWindows() {
       sandbox: true
     }
   });
+
   installerWindow.loadFile(path.join(__dirname, 'installer.html'));
-
-  installerWindow.on('focus', () => setActiveTaskbarWindow(installerWindow));
-  chromiumWindow.on('focus', () => setActiveTaskbarWindow(chromiumWindow));
-
   installerWindow.on('closed', () => {
     installerWindow = null;
-    if (chromiumWindow && !chromiumWindow.isDestroyed()) chromiumWindow.close();
   });
-  chromiumWindow.on('closed', () => {
-    chromiumWindow = null;
-    if (installerWindow && !installerWindow.isDestroyed()) installerWindow.close();
-  });
-
-  setActiveTaskbarWindow(installerWindow);
-  installerWindow.show();
-  installerWindow.focus();
 }
 
 ipcMain.handle('show-installer', () => {
@@ -137,32 +144,14 @@ ipcMain.handle('show-installer', () => {
   return true;
 });
 
-ipcMain.handle('toggle-view', () => {
-  if (!installerWindow || !chromiumWindow) return false;
-  if (installerWindow.isFocused()) {
-    chromiumWindow.show();
-    chromiumWindow.focus();
-  } else {
-    installerWindow.show();
-    installerWindow.focus();
-  }
-  return true;
-});
+ipcMain.handle('toggle-view', () => openGoogleChrome());
 
-ipcMain.handle('start-install', async () => {
-  if (!chromiumWindow || chromiumWindow.isDestroyed()) {
-    return { ok: false, message: 'پنجره Chromium اختصاصی Hadex در دسترس نیست.' };
-  }
-  chromiumWindow.show();
-  chromiumWindow.focus();
-  return { ok: true, message: 'مرورگر اختصاصی Hadex آماده است.' };
-});
+ipcMain.handle('start-install', () => openGoogleChrome());
 
-app.whenReady().then(() => {
-  browserSession = session.fromPartition(BROWSER_PARTITION);
-  createWindows();
-});
+app.whenReady().then(createInstallerWindow);
+
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindows();
+  if (BrowserWindow.getAllWindows().length === 0) createInstallerWindow();
 });
+
 app.on('window-all-closed', () => app.quit());
