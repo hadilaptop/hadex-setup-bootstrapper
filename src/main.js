@@ -4,12 +4,30 @@ const path = require('node:path');
 app.setName('Hadex Setup');
 app.setPath('userData', path.join(app.getPath('appData'), 'HadexSetup'));
 
-const WINDOW = { width: 560, height: 460 };
+const WINDOW = { width: 600, height: 650 };
 const BROWSER_PARTITION = 'persist:hadex-private-browser';
 
 let installerWindow;
 let chromiumWindow;
 let browserSession;
+
+// Keep both windows alive, but show only the active one. Hiding the
+// inactive window (rather than merely removing its taskbar button) prevents
+// Windows from displaying two previews when hovering the Hadex taskbar icon.
+function setActiveTaskbarWindow(activeWindow) {
+  if (!installerWindow || !chromiumWindow) return;
+  if (installerWindow.isDestroyed() || chromiumWindow.isDestroyed()) return;
+
+  installerWindow.setSkipTaskbar(false);
+  chromiumWindow.setSkipTaskbar(false);
+
+  const inactiveWindow = activeWindow === installerWindow
+    ? chromiumWindow
+    : installerWindow;
+
+  if (!activeWindow.isVisible()) activeWindow.show();
+  if (inactiveWindow.isVisible()) inactiveWindow.hide();
+}
 
 function routeNewWindow(contents, parentWindow) {
   contents.setWindowOpenHandler(({ url }) => {
@@ -17,15 +35,14 @@ function routeNewWindow(contents, parentWindow) {
       url.startsWith('https://accounts.google.com/') ||
       url.startsWith('https://myaccount.google.com/')
     ) {
-      // Open Google authentication in a separate Electron window using
+      // Open Google authentication in a compact Electron window using
       // the exact same persistent Hadex browser session/cookies.
       const authWindow = new BrowserWindow({
-        width: 520,
-        height: 700,
-        minWidth: 420,
-        minHeight: 560,
+        ...WINDOW,
         title: 'ورود به حساب Google — Hadex',
         autoHideMenuBar: true,
+        center: true,
+        resizable: false,
         parent: parentWindow && !parentWindow.isDestroyed() ? parentWindow : undefined,
         webPreferences: {
           session: browserSession,
@@ -46,7 +63,7 @@ function routeNewWindow(contents, parentWindow) {
 }
 
 function createWindows() {
-  const sharedBounds = { ...WINDOW, x: 160, y: 120 };
+  const sharedBounds = { ...WINDOW, center: true };
 
   chromiumWindow = new BrowserWindow({
     ...sharedBounds,
@@ -54,7 +71,8 @@ function createWindows() {
     maxWidth: WINDOW.width,
     minHeight: WINDOW.height,
     maxHeight: WINDOW.height,
-    show: true,
+    show: false,
+    skipTaskbar: false,
     title: 'Hadex Chromium',
     backgroundColor: '#f4f6f8',
     autoHideMenuBar: true,
@@ -81,6 +99,7 @@ function createWindows() {
     minHeight: WINDOW.height,
     maxHeight: WINDOW.height,
     show: true,
+    skipTaskbar: false,
     title: 'Hadex Setup',
     backgroundColor: '#10141d',
     autoHideMenuBar: true,
@@ -94,6 +113,9 @@ function createWindows() {
   });
   installerWindow.loadFile(path.join(__dirname, 'installer.html'));
 
+  installerWindow.on('focus', () => setActiveTaskbarWindow(installerWindow));
+  chromiumWindow.on('focus', () => setActiveTaskbarWindow(chromiumWindow));
+
   installerWindow.on('closed', () => {
     installerWindow = null;
     if (chromiumWindow && !chromiumWindow.isDestroyed()) chromiumWindow.close();
@@ -103,6 +125,7 @@ function createWindows() {
     if (installerWindow && !installerWindow.isDestroyed()) installerWindow.close();
   });
 
+  setActiveTaskbarWindow(installerWindow);
   installerWindow.show();
   installerWindow.focus();
 }

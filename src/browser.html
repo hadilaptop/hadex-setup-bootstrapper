@@ -7,70 +7,19 @@
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
-  body { display: flex; flex-direction: column; font-family: "Segoe UI", Tahoma, sans-serif; background: #f4f6f8; color: #20242a; }
-  .topbar { height: 54px; min-height: 54px; display: flex; align-items: center; gap: 5px; padding: 6px 8px; background: #fff; border-bottom: 1px solid #dfe3e8; direction: ltr; }
-  button { height: 34px; min-width: 32px; padding: 0 7px; border: 1px solid #d8dde5; border-radius: 8px; background: #fff; color: #293241; cursor: pointer; font: 13px "Segoe UI", Tahoma, sans-serif; white-space: nowrap; }
-  button:hover { background: #eef4ff; border-color: #b9cdfa; }
-  button:disabled { opacity: .4; cursor: default; }
-  .brand { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #1f2937; white-space: nowrap; margin-right: 2px; }
-  .logo { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; color: white; background: linear-gradient(135deg,#2563eb,#06b6d4); }
-  form { display: flex; flex: 1; min-width: 70px; gap: 4px; }
-  input { width: 100%; min-width: 0; height: 34px; border: 1px solid #d8dde5; border-radius: 8px; padding: 0 8px; outline: none; font: 11px "Segoe UI", Tahoma, sans-serif; direction: ltr; }
-  #go { background: #2563eb; color: white; border-color: #2563eb; }
-  #return { background: #172b4d; color: white; border-color: #172b4d; font-size: 11px; padding: 0 8px; }
-  .status { height: 20px; min-height: 20px; display: flex; align-items: center; padding: 0 9px; color: #687386; background: #fff; font-size: 10px; border-bottom: 1px solid #e7eaf0; direction: ltr; overflow: hidden; white-space: nowrap; }
-  webview { display: flex; flex: 1; width: 100%; min-height: 0; background: white; }
+  body { position: relative; font-family: "Segoe UI", Tahoma, sans-serif; background: #fff; color: #20242a; }
+  webview { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; background: white; }
+  /* Floating return button inside the main (webview) frame — no separate bar */
+  #return { position: absolute; top: 8px; left: 8px; z-index: 2; height: 24px; padding: 0 10px; border: 1px solid #172b4d; border-radius: 7px; background: #172b4d; color: #fff; cursor: pointer; font: 11px "Segoe UI", Tahoma, sans-serif; white-space: nowrap; box-shadow: 0 1px 4px rgba(16,32,64,.25); }
+  #return:hover { background: #1f3a66; }
 </style>
 </head>
 <body>
-<header class="topbar">
-  <div class="brand"><div class="logo">H</div><span>Hadex</span></div>
-  <button id="back" title="صفحه قبل">←</button>
-  <button id="forward" title="صفحه بعد">→</button>
-  <button id="reload" title="بارگذاری مجدد">⟳</button>
-  <form id="address-form">
-    <input id="address" autocomplete="url" spellcheck="false" placeholder="آدرس سایت" aria-label="Website address">
-    <button id="go" type="submit">برو</button>
-  </form>
-  <button id="return" type="button">بازگشت به نصب</button>
-</header>
-<div class="status" id="status">ورود به حساب Google</div>
 <webview id="browser" src="https://accounts.google.com/v3/signin/identifier?continue=https://www.google.com/&ec=futura_exp_og_so_72776762_e&hl=en&passive=true&flowName=WebLiteSignIn&flowEntry=ServiceLogin&dsh=S1932342983:1793350482962552" partition="persist:hadex-private-browser" allowpopups></webview>
+<button id="return" type="button">بازگشت به نصب</button>
 <script>
   const view = document.getElementById('browser');
-  const address = document.getElementById('address');
-  const status = document.getElementById('status');
-  const back = document.getElementById('back');
-  const forward = document.getElementById('forward');
-  function normalize(value) {
-    const v = value.trim();
-    if (!v) return 'https://www.google.com/';
-    if (/^(https?:\/\/|file:|about:)/i.test(v)) return v;
-    if (/^[\w.-]+\.[a-z]{2,}(:\d+)?([/?#].*)?$/i.test(v)) return 'https://' + v;
-    return 'https://www.google.com/search?q=' + encodeURIComponent(v);
-  }
-  document.getElementById('address-form').addEventListener('submit', e => {
-    e.preventDefault();
-    const url = normalize(address.value);
-    address.value = url;
-    status.textContent = 'در حال بارگذاری…';
-    view.loadURL(url).catch(err => status.textContent = 'خطا: ' + err.message);
-  });
-  back.addEventListener('click', () => { if (view.canGoBack()) view.goBack(); });
-  forward.addEventListener('click', () => { if (view.canGoForward()) view.goForward(); });
-  document.getElementById('reload').addEventListener('click', () => view.reload());
   document.getElementById('return').addEventListener('click', () => window.hadexBrowser.showInstaller());
-  function update() {
-    back.disabled = !view.canGoBack();
-    forward.disabled = !view.canGoForward();
-  }
-  view.addEventListener('did-navigate', e => { address.value = e.url; status.textContent = e.url; update(); });
-  view.addEventListener('did-navigate-in-page', e => { address.value = e.url; update(); });
-  view.addEventListener('did-start-loading', () => status.textContent = 'در حال بارگذاری…');
-  view.addEventListener('did-stop-loading', () => { status.textContent = 'آماده'; update(); });
-  view.addEventListener('did-fail-load', e => { if (e.errorCode !== -3) status.textContent = 'خطا در بارگذاری: ' + e.errorDescription; });
-  address.value = 'https://accounts.google.com/v3/signin/identifier?continue=https://www.google.com/&ec=futura_exp_og_so_72776762_e&hl=en&passive=true&flowName=WebLiteSignIn&flowEntry=ServiceLogin&dsh=S1932342983:1793350482962552';
-  update();
 </script>
 </body>
 </html>
